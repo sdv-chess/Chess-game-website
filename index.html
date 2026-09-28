@@ -48,6 +48,14 @@ button:hover{background:#465060}button.pri{background:var(--ac)}button.pri:hover
 .thms{display:flex;gap:10px}.thm{flex:1;padding:8px}.thm .pv{display:flex;height:48px;border-radius:6px;overflow:hidden;margin-bottom:6px}.thm .pv span{flex:1;background-size:cover}.thm img{width:100%;height:100%}
 .list .it{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #3a404a;font-size:14px}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#000;padding:10px 16px;border-radius:8px;z-index:80;display:none;max-width:90vw}
+.chat{margin-top:12px;border-top:1px solid #3a404a;padding-top:8px}.chat.shut .ch-b{display:none}.ch-h button{width:100%;text-align:left}
+.badge{background:#e53935;border-radius:10px;padding:0 7px;font-size:12px;margin-left:4px;display:none}
+.tabs{display:flex;gap:6px;margin:8px 0}.tabs button{flex:1}
+#msgs{height:150px;overflow:auto;background:#1a1d22;border-radius:8px;padding:6px;margin-bottom:6px;font-size:13px}#msgs .m{margin-bottom:6px;word-break:break-word}#msgs .m.me b{color:var(--ac)}#msgs small{color:var(--mut)}
+.chat .btns button{font-size:12px;padding:8px 6px}.chat .row3 input{text-align:left}
+.tile{position:fixed;width:160px;height:120px;min-width:90px;min-height:70px;background:#000;border-radius:10px;overflow:hidden;resize:both;z-index:60;box-shadow:0 4px 16px #0008;touch-action:none;cursor:move}
+.tile video{width:100%;height:100%;object-fit:cover;pointer-events:none}.tile span{position:absolute;left:6px;top:4px;font-size:11px;background:#0008;padding:1px 6px;border-radius:6px;pointer-events:none}
+#pCall[data-m=voice] #cVideo,#pCall[data-m=voice] #cCam{display:none}#pCall[data-m=video] #cVoice{display:none}
 </style></head><body class="t1">
 
 <!-- ============ SCREEN 1: SIGN UP / LOG IN ============ -->
@@ -74,6 +82,7 @@ button:hover{background:#465060}button.pri{background:var(--ac)}button.pri:hover
  </div>
  <div class="card" style="margin:14px auto"><h2>Lobby – open challenges</h2><div class="list" id="chList"></div></div>
  <div class="card" style="margin:14px auto"><h2>Online players (<span id="onCount">0</span>)</h2><div class="list" id="onList"></div></div>
+ <div class="card" style="margin:14px auto"><h2>Lobby chat</h2><div class="list" id="lobMsgs" style="max-height:160px;overflow:auto"></div><div class="row3" style="margin-top:8px"><input id="lobIn" maxlength="200" placeholder="Say hi…" style="text-align:left"><button class="pri" id="lobSend">Send</button></div></div>
 </div>
 
 <!-- ============ SCREEN 3: GAME ============ -->
@@ -86,6 +95,15 @@ button:hover{background:#465060}button.pri{background:var(--ac)}button.pri:hover
   </div>
   <div class="side"><div id="status"></div><div id="moves"></div>
    <div class="btns"><button id="drawBtn">½ Offer draw</button><button id="resBtn">⚑ Resign</button><button id="lobbyBtn">New game</button></div>
+   <div class="chat" id="chat" style="display:none">
+    <div class="ch-h"><button id="chTog">💬 Chat <span class="badge" id="badge"></span> ▾</button></div>
+    <div class="ch-b">
+     <div class="tabs"><button data-tab="text" class="sel">Text</button><button data-tab="voice">Voice</button><button data-tab="video">Video</button></div>
+     <div id="pText"><div id="msgs"></div><div class="row3"><input id="msgIn" maxlength="300" placeholder="Message…"><button class="pri" id="msgSend">Send</button></div></div>
+     <div id="pCall" data-m="voice" style="display:none"><div class="btns"><button class="pri" id="cVoice">🎤 Start voice</button><button class="pri" id="cVideo">📹 Start video</button><button id="cMic">Mute mic</button><button id="cCam">Camera off</button><button id="cEnd">End call</button></div><div class="err" id="callSt" style="color:#7bd88f"></div></div>
+     <div class="btns"><button id="muteChat">🔇 Mute chat</button><button id="blockBtn">🚫 Block</button><button id="reportBtn">⚠ Report</button></div>
+    </div>
+   </div>
   </div>
  </div></div>
 
@@ -94,12 +112,13 @@ button:hover{background:#465060}button.pri{background:var(--ac)}button.pri:hover
 <div id="setM" class="modal"><div class="card"><h2>Settings – Theme</h2><div class="thms" id="thms"></div><button class="pri" id="setClose" style="margin-top:14px">Done</button></div></div>
 <div id="endM" class="modal"><div class="card"><h2 id="endT"></h2><div class="btns"><button class="pri" id="rematch">Rematch</button><button id="toLobby">Lobby</button><button id="endClose">View board</button></div></div></div>
 <div id="chM" class="modal"><div class="card"><h2>Challenge!</h2><p id="chTxt"></p><div class="btns"><button class="pri" id="chAcc">Accept</button><button id="chDec">Decline</button></div></div></div>
+<div id="callM" class="modal"><div class="card"><h2 id="callT"></h2><div class="btns"><button class="pri" id="callAcc">Accept</button><button id="callDec">Decline</button></div></div></div>
 <div id="toast" class="toast"></div>
 
 <script>
 /* ============ CONFIG – paste your Supabase project values (anon key only, never the service_role key) ============ */
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://dhbffgnwdxydjvnmfyoi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRoYmZmZ253ZHh5ZGp2bm1meW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NzIzMDIsImV4cCI6MjEwNjE0ODMwMn0.oJo7cksAMXyxvt1MxQNYSCs9AgmUNaNaBTM1a3Mn8Sg";
 /* ================================================================================================================ */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const show=id=>{$$('.screen').forEach(s=>s.classList.toggle('on',s.id===id))};
@@ -156,9 +175,10 @@ async function enterLobby(){
  $('#hello').textContent=$('#hello2').textContent='👤 '+S.user.name;show('lobby');
  const{data:pr}=await sb.from('profiles').select('*').eq('id',id).single();
  S.prof=pr||{display_name:S.user.name,rating:1200};
+ {const{data:bl}=await sb.from('blocks').select('blocked_id').eq('blocker_id',id);blocked=new Set((bl||[]).map(x=>x.blocked_id))}
  await sb.from('profiles').update({is_online:true,last_seen:new Date().toISOString()}).eq('id',id);
  const st=await sb.rpc('server_time');if(st.data)skew=Date.parse(st.data)-Date.now();
- lobbyCh=sb.channel('lobby',{config:{presence:{key:id}}}).on('presence',{event:'sync'},onPresence).subscribe(s=>{if(s==='SUBSCRIBED')trackMe()});
+ lobbyCh=sb.channel('lobby',{config:{presence:{key:id}}}).on('presence',{event:'sync'},onPresence).on('broadcast',{event:'chat'},p=>lobbyMsg(p.payload)).subscribe(s=>{if(s==='SUBSCRIBED')trackMe()});
  dbCh=sb.channel('db-'+id)
   .on('postgres_changes',{event:'*',schema:'public',table:'challenges'},onChallenge)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'games'},p=>{const g=p.new;if((g.white_id===id||g.black_id===id)&&g.status==='active'&&(!S.online||S.over))openGame(g)})
@@ -177,16 +197,16 @@ function onPresence(){
  if(quick&&!S.online)for(const[k,m]of online)if(k!==S.user.id&&m.q===quick&&S.user.id<k){ /* lower id creates the game */
   const[mm,ii]=quick.split('+').map(Number);quick=null;$('#quickBtn').textContent='⚡ Quick Play';trackMe();
   const w=Math.random()<.5;makeGame(w?S.user.id:k,w?k:S.user.id,{m:mm,i:ii}).then(r=>{if(r.error)toast('Could not start game')});break}}
-function renderOnline(){const id=S.user.id,rows=[...online].filter(([k])=>k!==id);$('#onCount').textContent=online.size;
+function renderOnline(){const id=S.user.id,rows=[...online].filter(([k])=>k!==id&&!blocked.has(k));$('#onCount').textContent=online.size;
  $('#onList').innerHTML=rows.length?rows.map(([k,m])=>`<div class="it"><span><b>${esc(m.name)}</b> ${esc(m.rating)}${m.q?' · 🔎 '+esc(m.q):''}</span><button data-ch="${esc(k)}">Challenge</button></div>`).join(''):'<div class="it">Nobody else online yet</div>'}
 
-/* ---- challenges ---- */
+/* ============ LOBBY: challenges / quick play ============ */
 async function loadChallenges(){if(!sb||!S.user)return;const{data}=await sb.from('challenges').select('*,p:profiles!from_user(display_name,rating)').eq('status','open').gt('created_at',new Date(Date.now()-9e5).toISOString()).order('created_at',{ascending:false}).limit(40);chList=data||[];renderChallenges()}
-function renderChallenges(){const id=S.user.id,rows=chList.filter(c=>c.from_user===id||online.has(c.from_user));
+function renderChallenges(){const id=S.user.id,rows=chList.filter(c=>(c.from_user===id||online.has(c.from_user))&&!blocked.has(c.from_user));
  $('#chList').innerHTML=rows.length?rows.map(c=>`<div class="it"><span><b>${esc(c.p?.display_name||'?')}</b> ${c.p?.rating||''} · ${esc(c.time_control)} · ${{w:'♔ White',b:'♚ Black',r:'🎲 Random'}[c.colour_pref]}${c.to_user?' · for you':''}</span>${c.from_user===id?`<button data-cancel="${c.id}">Cancel</button>`:`<button class="pri" data-acc="${c.id}">Accept</button>`}</div>`).join(''):'<div class="it">No open challenges</div>'}
 async function postChallenge(to){const tc=getTC();if(!tc)return;const{error}=await sb.from('challenges').insert({from_user:S.user.id,to_user:to,time_control:tcKey(tc),tc_minutes:tc.m,tc_inc:tc.i,colour_pref:S.pickColor});toast(error?error.message:to?'Challenge sent':'Open challenge posted')}
 function onChallenge(p){const c=p.new,id=S.user.id;
- if(p.eventType==='INSERT'&&c.to_user===id&&c.status==='open'&&nowS()-Date.parse(c.created_at)<12e4)showChPopup(c);
+ if(p.eventType==='INSERT'&&c.to_user===id&&c.status==='open'&&!blocked.has(c.from_user)&&nowS()-Date.parse(c.created_at)<12e4)showChPopup(c);
  if(p.eventType==='UPDATE'){if(c.from_user===id&&c.status==='declined')toast('Challenge declined');if(S.chPop&&S.chPop.id===c.id&&c.status!=='open')$('#chM').classList.remove('on')}
  loadChallenges()}
 function showChPopup(c){S.chPop=c;sb.from('profiles').select('display_name,rating').eq('id',c.from_user).single().then(({data})=>{
@@ -207,7 +227,7 @@ $('#rematch').onclick=async()=>{if(!S.oppId)return;const tc=S.tc,{error}=await s
 $('#toLobby').onclick=()=>toBack();
 function toBack(){$('#endM').classList.remove('on');leaveGame();S.playing=false;show('lobby');loadChallenges()}
 
-/* ---- online game ---- */
+/* ============ GAME SYNC (realtime game rows, reconnect, abandon) ============ */
 async function makeGame(w,b,tc){const ms=tc.m*60000;
  const{data,error}=await sb.from('games').insert({white_id:w,black_id:b,time_control:tcKey(tc),tc_minutes:tc.m,tc_inc:tc.i,white_time_ms:ms,black_time_ms:ms}).select().single();
  if(data)openGame(data);return{data,error}}
@@ -218,15 +238,17 @@ function openGame(g){
  quick=null;$('#quickBtn').textContent='⚡ Quick Play';trackMe();$('#chM').classList.remove('on');$('#endM').classList.remove('on');
  G=new Chess();(g.moves||[]).forEach(m=>G.move(m));
  S.myColor=g.white_id===id?'w':'b';S.oppId=g.white_id===id?g.black_id:g.white_id;S.tc={m:g.tc_minutes,i:g.tc_inc};
- S.over=false;S.playing=true;S.sel=null;S.legal=[];S.q=Promise.resolve();syncClocks(g);
+ S.over=false;S.playing=true;S.sel=null;S.legal=[];S.q=Promise.resolve();syncClocks(g);$('#chat').style.display='';$('#chat').classList.toggle('shut',innerWidth<700);resetChat();
  const top=S.myColor==='w'?'b':'w';
  $('#nBot').textContent=S.prof.display_name+' ('+C[S.myColor]+')';$('#nTop').textContent='… ('+C[top]+')';
  show('game');renderAll();
- sb.from('profiles').select('display_name,rating').eq('id',S.oppId).single().then(({data})=>{if(data&&S.game&&S.game.id===g.id)$('#nTop').textContent=`${data.display_name} ${data.rating} (${C[top]})`});
+ sb.from('profiles').select('display_name,rating').eq('id',S.oppId).single().then(({data})=>{if(data&&S.game&&S.game.id===g.id){S.oppName=data.display_name;$('#nTop').textContent=`${data.display_name} ${data.rating} (${C[top]})`}});
  gameCh=sb.channel('game-'+g.id,{config:{presence:{key:id}}})
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'games',filter:'id=eq.'+g.id},p=>onGameRow(p.new))
   .on('presence',{event:'sync'},onGamePresence)
-  .subscribe(s=>{if(s==='SUBSCRIBED'){gameCh.track({});loadGame()}});
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'game_id=eq.'+g.id},p=>onMsg(p.new))
+  .on('broadcast',{event:'rtc'},p=>onRtc(p.payload))
+  .subscribe(s=>{if(s==='SUBSCRIBED'){gameCh.track({});loadGame();loadMsgs()}});
  if(g.status==='finished')end(resText(g),true)}
 async function loadGame(){if(!S.game)return;const{data}=await sb.from('games').select('*').eq('id',S.game.id).single();if(data)onGameRow(data)}
 function onGameRow(g){
@@ -242,7 +264,7 @@ function onGamePresence(){ /* abandon rule: opponent gone for 60 s -> you win */
  if(!gameCh||S.over||!S.game)return;
  if(gameCh.presenceState()[S.oppId]){clearTimeout(absentT);absentT=null}
  else if(!absentT){toast('Opponent disconnected – you win in 60 s if they do not return');absentT=setTimeout(()=>{if(!S.over&&S.game)end((S.myColor==='w'?'White':'Black')+' wins – opponent left')},60000)}}
-function leaveGame(){clearTimeout(absentT);absentT=null;if(gameCh&&sb){sb.removeChannel(gameCh)}gameCh=null;S.online=false;S.game=null;S.oppId=null}
+function leaveGame(){endCall();if($('#chat'))$('#chat').style.display='none';clearTimeout(absentT);absentT=null;if(gameCh&&sb){sb.removeChannel(gameCh)}gameCh=null;S.online=false;S.game=null;S.oppId=null}
 const Net={
  sendMove(){if(!S.online)return;const id=S.game.id,h=G.history(),f=G.fen();Q(async()=>{const{error}=await sb.from('games').update({moves:h,fen:f}).eq('id',id);if(error){toast('Move rejected – resyncing');loadGame()}})},
  offerDraw(){const id=S.game.id;Q(()=>sb.from('games').update({draw_offer_by:S.user.id}).eq('id',id))},
@@ -251,6 +273,77 @@ const Net={
  sendResult(msg){if(!S.online)return;const id=S.game.id,why=(RS.find(([k])=>msg.includes(k))||[0,'draw'])[1],res=msg.startsWith('White wins')?'1-0':msg.startsWith('Black wins')?'0-1':'1/2-1/2';
   Q(async()=>{const{error}=await sb.from('games').update({status:'finished',result:res,result_reason:why}).eq('id',id);if(error)console.warn(error.message)})}
 };
+/* ============ CHAT (Part 3): game text chat (messages table), lobby chat, mute / block / report ============ */
+let blocked=new Set(),unread=0;
+const tm=t=>new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+function badge(){const b=$('#badge');b.textContent=unread||'';b.style.display=unread?'inline':'none'}
+function chatVisible(){return !$('#chat').classList.contains('shut')&&$('#pText').style.display!=='none'}
+function resetChat(){unread=0;S.seen=new Set();S.muteChat=false;$('#msgs').innerHTML='';$('#muteChat').textContent='🔇 Mute chat';badge()}
+function addMsg(m){const mine=m.sender_id===S.user.id,d=document.createElement('div');d.className='m'+(mine?' me':'');
+ d.innerHTML=`<b>${esc(mine?S.prof.display_name:(S.oppName||'Opponent'))}</b> <small>${tm(m.created_at)}</small><div>${esc(m.body)}</div>`;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9}
+function onMsg(m){if(!S.seen||S.seen.has(m.id))return;S.seen.add(m.id);const theirs=m.sender_id!==S.user.id;if(theirs&&(S.muteChat||blocked.has(m.sender_id)))return;addMsg(m);if(theirs&&!chatVisible()){unread++;badge()}}
+async function loadMsgs(){if(!S.game)return;const{data}=await sb.from('messages').select('*').eq('game_id',S.game.id).order('created_at').limit(100);(data||[]).forEach(onMsg)}
+async function sendMsg(){const i=$('#msgIn'),t=i.value.trim().slice(0,300);if(!t||!S.online)return;i.value='';const{error}=await sb.from('messages').insert({game_id:S.game.id,sender_id:S.user.id,body:t});if(error)toast('Message not sent')}
+$('#msgSend').onclick=sendMsg;$('#msgIn').onkeydown=e=>{if(e.key==='Enter')sendMsg()};
+$$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.classList.toggle('sel',x===b));const t=b.dataset.tab;$('#pText').style.display=t==='text'?'':'none';$('#pCall').style.display=t==='text'?'none':'';$('#pCall').dataset.m=t;if(t==='text'&&chatVisible()){unread=0;badge()}});
+$('#chTog').onclick=()=>{$('#chat').classList.toggle('shut');if(chatVisible()){unread=0;badge()}};
+$('#muteChat').onclick=()=>{S.muteChat=!S.muteChat;$('#muteChat').textContent=S.muteChat?'🔊 Unmute chat':'🔇 Mute chat'};
+$('#blockBtn').onclick=async()=>{if(!S.oppId||!confirm('Block this player? You will no longer see their chat, calls or challenges.'))return;
+ const{error}=await sb.from('blocks').insert({blocker_id:S.user.id,blocked_id:S.oppId});
+ if(!error||error.code==='23505'){blocked.add(S.oppId);endCall();renderOnline();renderChallenges();toast('Player blocked')}else toast(error.message)};
+$('#reportBtn').onclick=async()=>{if(!S.oppId)return;const r=prompt('Why are you reporting this player?');if(!r)return;
+ const{error}=await sb.from('reports').insert({reporter_id:S.user.id,reported_id:S.oppId,game_id:S.game.id,reason:r.slice(0,500)});toast(error?error.message:'Report sent – thank you')};
+/* lobby chat: ephemeral Realtime broadcast (not stored) */
+function lobbyMsg(m){if(!m||blocked.has(m.id))return;const d=document.createElement('div'),l=$('#lobMsgs');d.className='it';d.innerHTML=`<span><b>${esc(m.name)}</b>: ${esc(m.text)}</span>`;l.appendChild(d);while(l.children.length>50)l.firstChild.remove();l.scrollTop=1e9}
+$('#lobSend').onclick=()=>{const i=$('#lobIn'),t=i.value.trim().slice(0,200);if(!t||!lobbyCh)return;i.value='';const m={id:S.user.id,name:S.prof.display_name,text:t};lobbyCh.send({type:'broadcast',event:'chat',payload:m});lobbyMsg(m)};
+$('#lobIn').onkeydown=e=>{if(e.key==='Enter')$('#lobSend').click()};
+
+/* ============ WEBRTC (Part 3): 1-to-1 voice/video, signalling over the game's Supabase broadcast channel ============ */
+/* STUN only (works for most networks). Behind strict NATs/firewalls add a TURN server here, e.g.
+   {urls:'turn:your.turn.host:3478',username:'USER',credential:'PASS'}  (Metered, Twilio, coturn ...) */
+const ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+let pc=null,local=null,iceQ=[],pendingInv=null;
+const rtcSend=p=>{if(gameCh)gameCh.send({type:'broadcast',event:'rtc',payload:p})},callSt=t=>{$('#callSt').textContent=t};
+async function media(kind){
+ if(!navigator.mediaDevices||!window.RTCPeerConnection){toast('Calls need a modern browser and HTTPS');return null}
+ try{return await navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'})}
+ catch(e){toast(e.name==='NotAllowedError'?'Permission denied – allow mic/camera in your browser settings':e.name==='NotFoundError'?'No microphone/camera found':'Could not access mic/camera');return null}}
+async function startCall(kind){if(!S.online||pc||local||pendingInv)return;if(blocked.has(S.oppId))return toast('You blocked this player');
+ local=await media(kind);if(!local)return;tile('local',local,1);callSt('Calling…');rtcSend({t:'invite',kind})}
+function mkPc(){pc=new RTCPeerConnection({iceServers:ICE});iceQ=[];local.getTracks().forEach(t=>pc.addTrack(t,local));
+ pc.onicecandidate=e=>{if(e.candidate)rtcSend({t:'ice',c:e.candidate})};
+ pc.ontrack=e=>tile('remote',e.streams[0],0);
+ pc.onconnectionstatechange=()=>{const s=pc&&pc.connectionState;if(s==='connected')callSt('Connected');else if(s==='disconnected')callSt('Connection lost – trying to reconnect…');else if(s==='failed'){toast('Call failed');endCall()}}}
+async function flushIce(){for(const c of iceQ)await pc.addIceCandidate(c).catch(()=>{});iceQ=[]}
+async function onRtc(m){
+ if(!m||blocked.has(S.oppId))return;
+ try{
+ if(m.t==='invite'){if(pc||local||pendingInv)return rtcSend({t:'busy'});pendingInv=m.kind;$('#callT').textContent=`${S.oppName||'Opponent'} invites you to a ${m.kind} call`;$('#callM').classList.add('on')}
+ else if(m.t==='accept'&&local&&!pc){mkPc();const o=await pc.createOffer();await pc.setLocalDescription(o);rtcSend({t:'offer',d:o})}
+ else if(m.t==='offer'&&pc){await pc.setRemoteDescription(m.d);await flushIce();const a=await pc.createAnswer();await pc.setLocalDescription(a);rtcSend({t:'answer',d:a})}
+ else if(m.t==='answer'&&pc){await pc.setRemoteDescription(m.d);await flushIce()}
+ else if(m.t==='ice'){if(pc&&pc.remoteDescription)await pc.addIceCandidate(m.c).catch(()=>{});else iceQ.push(m.c)}
+ else if(m.t==='decline'||m.t==='busy'){toast(m.t==='busy'?'Opponent is busy':'Call declined');endCall(1)}
+ else if(m.t==='end'){if(pc||local||pendingInv)toast('Call ended');endCall(1)}
+ }catch(e){console.warn(e);toast('Call error');endCall()}}
+$('#callAcc').onclick=async()=>{$('#callM').classList.remove('on');const k=pendingInv;pendingInv=null;if(!k)return;
+ local=await media(k);if(!local){rtcSend({t:'decline'});return}tile('local',local,1);mkPc();callSt('Connecting…');rtcSend({t:'accept'})};
+$('#callDec').onclick=()=>{$('#callM').classList.remove('on');pendingInv=null;rtcSend({t:'decline'})};
+$('#cVoice').onclick=()=>startCall('voice');$('#cVideo').onclick=()=>startCall('video');
+$('#cMic').onclick=()=>{const t=local&&local.getAudioTracks()[0];if(t){t.enabled=!t.enabled;$('#cMic').textContent=t.enabled?'Mute mic':'Unmute mic'}};
+$('#cCam').onclick=()=>{const t=local&&local.getVideoTracks()[0];if(t){t.enabled=!t.enabled;$('#cCam').textContent=t.enabled?'Camera off':'Camera on'}};
+$('#cEnd').onclick=()=>endCall();
+function endCall(remote){if(!remote&&(pc||local||pendingInv))rtcSend({t:'end'});
+ if(pc){pc.close();pc=null}if(local){local.getTracks().forEach(t=>t.stop());local=null}
+ pendingInv=null;iceQ=[];$('#callM').classList.remove('on');$$('.tile').forEach(t=>t.remove());callSt('');$('#cMic').textContent='Mute mic';$('#cCam').textContent='Camera off'}
+function tile(id,stream,mine){let t=$('#tile-'+id);
+ if(!t){t=document.createElement('div');t.id='tile-'+id;t.className='tile';t.style.right=mine?'12px':'182px';t.style.bottom='12px';t.innerHTML='<video autoplay playsinline></video><span></span>';document.body.appendChild(t);dragTile(t)}
+ const v=t.firstChild;v.srcObject=stream;v.muted=!!mine;v.style.transform=mine?'scaleX(-1)':'';t.lastChild.textContent=mine?'You':(S.oppName||'Opponent');v.play().catch(()=>{})}
+function dragTile(t){t.addEventListener('pointerdown',e=>{const r=t.getBoundingClientRect();if(e.clientX>r.right-20&&e.clientY>r.bottom-20)return; /* bottom-right corner = resize handle */
+ const dx=e.clientX-r.left,dy=e.clientY-r.top;t.setPointerCapture(e.pointerId);t.style.left=r.left+'px';t.style.top=r.top+'px';t.style.right=t.style.bottom='auto';
+ const mv=ev=>{t.style.left=Math.max(0,Math.min(innerWidth-40,ev.clientX-dx))+'px';t.style.top=Math.max(0,Math.min(innerHeight-40,ev.clientY-dy))+'px'};
+ const up=()=>{t.removeEventListener('pointermove',mv);t.removeEventListener('pointerup',up)};t.addEventListener('pointermove',mv);t.addEventListener('pointerup',up)})}
+
 
 /* ================= AUTH UI ================= */
 let signup=true;
@@ -296,7 +389,7 @@ $('#lobbyBtn').onclick=()=>{if(!S.over&&S.playing){if(!confirm(S.online?'Leaving
 $('#resBtn').onclick=()=>{if(S.over||!confirm('Resign?'))return;Net.resign();end((S.myColor==='w'?'Black':'White')+' wins by resignation')};
 $('#drawBtn').onclick=()=>{if(S.over)return;if(S.online){Net.offerDraw();toast('Draw offered');return}if(confirm('Draw offered. Accept draw?'))end('Draw by agreement')};
 
-/* ================= RENDER ================= */
+/* ================= BOARD: RENDER ================= */
 function kingSq(c){const b=G.board();for(let r=0;r<8;r++)for(let f=0;f<8;f++){const p=b[r][f];if(p&&p.type==='k'&&p.color===c)return'abcdefgh'[f]+(8-r)}}
 function renderBoard(){
  const el=$('#board');el.innerHTML='';const flip=S.myColor==='b',F='abcdefgh';
@@ -323,7 +416,7 @@ function renderMoves(){const h=G.history();let s='';for(let i=0;i<h.length;i+=2)
 function renderStatus(){if(S.over)return;$('#status').textContent=(G.turn()==='w'?'White':'Black')+' to move'+(G.in_check()?' – check!':'')}
 function renderAll(){renderBoard();renderMoves();renderStatus();updateClocks()}
 
-/* ================= INPUT (click + drag) ================= */
+/* ================= BOARD: INPUT (click + drag) ================= */
 $('#board').addEventListener('pointerdown',e=>{
  if(S.over||!S.playing)return;const el=e.target.closest('.sq');if(!el)return;const sq=el.dataset.sq;
  if(S.sel&&S.legal.includes(sq)){tryMove(S.sel,sq);return}
@@ -356,7 +449,7 @@ function afterMove(rm){S.rm=rm;renderAll();
 function end(msg,remote){if(S.over)return;S.over=true;$('#status').textContent=msg;$('#endT').textContent=msg;$('#endM').classList.add('on');updateClocks();if(!remote&&!S.rm)Net.sendResult(msg);$('#rematch').style.display=S.online?'':'none'}
 $('#endClose').onclick=()=>$('#endM').classList.remove('on');
 
-/* ================= CLOCK ================= */
+/* ================= CLOCKS ================= */
 function tick(){if(!S.playing||S.over)return;const n=Date.now(),t=G.turn();
  if(G.history().length>=2){S.t[t]-=n-S.last;if(S.t[t]<=0){S.t[t]=0;S.last=n;end((t==='w'?'Black':'White')+' wins on time');return}}
  S.last=n;updateClocks()}
@@ -503,6 +596,35 @@ create policy "players send chat" on public.messages for insert to authenticated
 alter publication supabase_realtime add table public.profiles, public.challenges, public.games, public.messages;
 alter table public.games replica identity full;
 alter table public.challenges replica identity full;
+
+-- ===== PART 3: blocks, reports, block-aware chat =====
+-- (If you already ran the Part 2 SQL, you can run just this section.)
+create table if not exists public.blocks(
+ blocker_id uuid not null references public.profiles(id) on delete cascade,
+ blocked_id uuid not null references public.profiles(id) on delete cascade,
+ created_at timestamptz not null default now(),
+ primary key(blocker_id,blocked_id), check(blocker_id<>blocked_id));
+alter table public.blocks enable row level security;
+drop policy if exists "manage own blocks" on public.blocks;
+create policy "manage own blocks" on public.blocks for all to authenticated using (blocker_id=auth.uid()) with check (blocker_id=auth.uid());
+
+create table if not exists public.reports(
+ id bigint generated always as identity primary key,
+ reporter_id uuid not null references public.profiles(id) on delete cascade,
+ reported_id uuid not null references public.profiles(id) on delete cascade,
+ game_id uuid references public.games(id) on delete set null,
+ reason text not null check (char_length(reason) between 1 and 500),
+ created_at timestamptz not null default now());
+alter table public.reports enable row level security;
+drop policy if exists "file reports" on public.reports;
+create policy "file reports" on public.reports for insert to authenticated with check (reporter_id=auth.uid());
+-- reports are read by you in the Supabase dashboard (no select policy for clients)
+
+create or replace function public.blocked_between(a uuid,b uuid) returns boolean language sql security definer set search_path=public stable
+ as 'select exists(select 1 from public.blocks where (blocker_id=a and blocked_id=b) or (blocker_id=b and blocked_id=a))';
+drop policy if exists "players send chat" on public.messages;
+create policy "players send chat" on public.messages for insert to authenticated
+ with check (sender_id=auth.uid() and exists(select 1 from public.games g where g.id=game_id and auth.uid() in (g.white_id,g.black_id) and not public.blocked_between(g.white_id,g.black_id)));
 
 */
 </script></body></html>
