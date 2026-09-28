@@ -56,6 +56,8 @@ button:hover{background:#465060}button.pri{background:var(--ac)}button.pri:hover
 .tile{position:fixed;width:160px;height:120px;min-width:90px;min-height:70px;background:#000;border-radius:10px;overflow:hidden;resize:both;z-index:60;box-shadow:0 4px 16px #0008;touch-action:none;cursor:move}
 .tile video{width:100%;height:100%;object-fit:cover;pointer-events:none}.tile span{position:absolute;left:6px;top:4px;font-size:11px;background:#0008;padding:1px 6px;border-radius:6px;pointer-events:none}
 #pCall[data-m=voice] #cVideo,#pCall[data-m=voice] #cCam{display:none}#pCall[data-m=video] #cVoice{display:none}
+.credit{display:flex;align-items:center;justify-content:center;gap:10px;margin:18px auto;color:var(--mut);font-size:13px}.credit img{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--ac)}.credit b{color:var(--tx)}
+.stats{margin-bottom:10px;color:var(--mut)}.res-w{color:#6fd98a}.res-l{color:#ff7b7b}.res-d{color:#c9c9c9}.hrow{cursor:pointer}.hmoves{background:#1a1d22;border-radius:8px;padding:8px;font:12px ui-monospace,monospace;color:var(--mut);word-break:break-word;margin:4px 0}#endT{white-space:pre-line}
 </style></head><body class="t1">
 
 <!-- ============ SCREEN 1: SIGN UP / LOG IN ============ -->
@@ -67,22 +69,30 @@ button:hover{background:#465060}button.pri{background:var(--ac)}button.pri:hover
  <div class="err" id="eForm"></div>
  <button class="pri" id="authGo" style="width:100%;margin-top:6px">Create account</button>
  <p style="text-align:center"><button class="link" id="authToggle">Log in instead</button></p>
-</div></div>
+</div>
+ <div class="credit"><img class="me" alt="Sairaj Dilip Vernekar"><span>Made by <b>Sairaj Dilip Vernekar</b></span></div></div>
 
 <!-- ============ SCREEN 2: LOBBY ============ -->
-<div id="lobby" class="screen"><div class="bar"><b id="hello"></b><div><button id="setBtn">⚙ Settings</button><button class="logout">Log out</button></div></div>
+<div id="lobby" class="screen"><div class="bar"><b id="hello"></b><div><button id="histBtn">📜 My matches</button><button id="setBtn">⚙ Settings</button><button class="logout">Log out</button></div></div>
  <div class="card" style="margin-top:2vh"><h2>New game</h2>
   <label>Time control</label><div class="grid" id="tcs"></div>
   <div id="custom" style="display:none"><div class="row3"><input id="cH" type="number" min="0" placeholder="hours"><b>:</b><input id="cM" type="number" min="0" placeholder="minutes"><b>+</b><input id="cI" type="number" min="0" placeholder="bonus (s)"></div></div>
   <div class="err" id="eTc"></div>
   <label>Play as</label><div class="grid" id="cols"><button data-c="w" class="sel">White</button><button data-c="b">Black</button><button data-c="r">Random</button></div>
   <button class="pri" id="quickBtn" style="width:100%;margin-top:10px">⚡ Quick Play</button>
-  <button id="openBtn" style="width:100%;margin-top:8px">📢 Post open challenge</button>
+  <button id="openBtn" style="width:100%;margin-top:8px">⚔ Challenge – auto-pair by rating</button>
   <button id="startBtn" style="width:100%;margin-top:8px">Practice (same device)</button>
  </div>
  <div class="card" style="margin:14px auto"><h2>Lobby – open challenges</h2><div class="list" id="chList"></div></div>
  <div class="card" style="margin:14px auto"><h2>Online players (<span id="onCount">0</span>)</h2><div class="list" id="onList"></div></div>
  <div class="card" style="margin:14px auto"><h2>Lobby chat</h2><div class="list" id="lobMsgs" style="max-height:160px;overflow:auto"></div><div class="row3" style="margin-top:8px"><input id="lobIn" maxlength="200" placeholder="Say hi…" style="text-align:left"><button class="pri" id="lobSend">Send</button></div></div>
+ <div class="credit"><img class="me" alt="Sairaj Dilip Vernekar"><span>Made by <b>Sairaj Dilip Vernekar</b></span></div>
+</div>
+
+<!-- ============ SCREEN: MATCH HISTORY ============ -->
+<div id="history" class="screen"><div class="bar"><b id="hello3"></b><div><button id="histBack">← Lobby</button></div></div>
+ <div class="card" style="max-width:640px;margin-top:2vh"><h2>My matches</h2><div class="stats" id="hStats"></div><div class="list" id="hList"></div></div>
+ <div class="credit"><img class="me" alt="Sairaj Dilip Vernekar"><span>Made by <b>Sairaj Dilip Vernekar</b></span></div>
 </div>
 
 <!-- ============ SCREEN 3: GAME ============ -->
@@ -161,8 +171,10 @@ async function authLogIn(email,password){if(!sb)return NOCFG;const{data,error}=a
 async function authLogOut(){await goOffline();if(sb)await sb.auth.signOut()}
 async function authGetSession(){if(!sb)return null;const{data}=await sb.auth.getSession();return data.session?{user:mk(data.session.user)}:null}
 
-let lobbyCh=null,dbCh=null,gameCh=null,skew=0,inited=null,quick=null,hb=null,absentT=null,online=new Map(),chList=[];
+let lobbyCh=null,dbCh=null,gameCh=null,skew=0,inited=null,quick=null,quickAt=0,qTimer=null,hb=null,absentT=null,online=new Map(),chList=[];
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3500)};
+const RANGE=200; /* open-challenge auto-pair: max rating difference */
+const setHello=()=>{const t='👤 '+(S.user?S.user.name:'')+(S.prof?' · ★'+S.prof.rating:'');['#hello','#hello2','#hello3'].forEach(x=>$(x).textContent=t)};
 const tcKey=t=>t.m+'+'+t.i,nowS=()=>Date.now()+skew,Q=f=>S.q=(S.q||Promise.resolve()).then(f).catch(e=>console.warn(e));
 const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const RS=[['checkmate','checkmate'],['on time','time'],['resign','resign'],['left','abandon'],['stalemate','stalemate'],['insufficient','insufficient'],['repetition','repetition'],['50-move','50move'],['agreement','agreement']];
@@ -172,9 +184,9 @@ function resText(g){const w={'1-0':'White','0-1':'Black'}[g.result],y={checkmate
 /* ---- session / presence / subscriptions ---- */
 async function enterLobby(){
  if(inited===S.user.id)return;inited=S.user.id;const id=S.user.id;
- $('#hello').textContent=$('#hello2').textContent='👤 '+S.user.name;show('lobby');
+ S.prof=null;setHello();show('lobby');
  const{data:pr}=await sb.from('profiles').select('*').eq('id',id).single();
- S.prof=pr||{display_name:S.user.name,rating:1200};
+ S.prof=pr||{display_name:S.user.name,rating:1200};setHello();
  {const{data:bl}=await sb.from('blocks').select('blocked_id').eq('blocker_id',id);blocked=new Set((bl||[]).map(x=>x.blocked_id))}
  await sb.from('profiles').update({is_online:true,last_seen:new Date().toISOString()}).eq('id',id);
  const st=await sb.rpc('server_time');if(st.data)skew=Date.parse(st.data)-Date.now();
@@ -188,15 +200,22 @@ async function enterLobby(){
  const{data:gs}=await sb.from('games').select('*').eq('status','active').or(`white_id.eq.${id},black_id.eq.${id}`).order('last_move_at',{ascending:false}).limit(1);
  if(gs&&gs[0])openGame(gs[0]); /* refresh / reconnect restores the running game */
 }
-function teardown(){clearInterval(hb);quick=null;[lobbyCh,dbCh].forEach(c=>c&&sb.removeChannel(c));lobbyCh=dbCh=null;leaveGame();inited=null;online=new Map()}
+function teardown(){clearInterval(hb);clearInterval(qTimer);quick=null;[lobbyCh,dbCh].forEach(c=>c&&sb.removeChannel(c));lobbyCh=dbCh=null;leaveGame();inited=null;online=new Map()}
 async function goOffline(){if(!S.user||!sb)return;const id=S.user.id;try{await sb.from('challenges').update({status:'cancelled'}).eq('from_user',id).eq('status','open');await sb.from('profiles').update({is_online:false}).eq('id',id)}catch(e){}teardown()}
-const trackMe=()=>lobbyCh&&lobbyCh.track({id:S.user.id,name:S.prof.display_name,rating:S.prof.rating,q:quick});
+const trackMe=()=>lobbyCh&&lobbyCh.track({id:S.user.id,name:S.prof.display_name,rating:S.prof.rating,q:quick,qs:quickAt});
 function onPresence(){
  online=new Map();const st=lobbyCh.presenceState();for(const k in st)if(st[k][0])online.set(k,st[k][0]);
  renderOnline();renderChallenges();
- if(quick&&!S.online)for(const[k,m]of online)if(k!==S.user.id&&m.q===quick&&S.user.id<k){ /* lower id creates the game */
-  const[mm,ii]=quick.split('+').map(Number);quick=null;$('#quickBtn').textContent='⚡ Quick Play';trackMe();
-  const w=Math.random()<.5;makeGame(w?S.user.id:k,w?k:S.user.id,{m:mm,i:ii}).then(r=>{if(r.error)toast('Could not start game')});break}}
+ tryQuick()}
+/* Quick Play: pair with the closest-rated player searching the same time control. The allowed rating gap starts at 100 and grows by 50 every 5 s of waiting. */
+const qWin=t=>100+Math.floor(Math.max(0,nowS()-t)/5000)*50;
+function tryQuick(){
+ if(!quick||S.online||!S.prof||!lobbyCh)return;let best=null,bd=1e9;
+ for(const[k,m]of online){if(k===S.user.id||m.q!==quick||blocked.has(k)||S.user.id>k)continue; /* lower id creates the game */
+  const d=Math.abs((m.rating||1200)-S.prof.rating);if(d<=Math.max(qWin(quickAt),qWin(m.qs||nowS()))&&d<bd){best=k;bd=d}}
+ if(!best)return;
+ const[mm,ii]=quick.split('+').map(Number);quick=null;clearInterval(qTimer);$('#quickBtn').textContent='⚡ Quick Play';trackMe();
+ const w=Math.random()<.5;makeGame(w?S.user.id:best,w?best:S.user.id,{m:mm,i:ii}).then(r=>{if(r.error)toast('Could not start game')})}
 function renderOnline(){const id=S.user.id,rows=[...online].filter(([k])=>k!==id&&!blocked.has(k));$('#onCount').textContent=online.size;
  $('#onList').innerHTML=rows.length?rows.map(([k,m])=>`<div class="it"><span><b>${esc(m.name)}</b> ${esc(m.rating)}${m.q?' · 🔎 '+esc(m.q):''}</span><button data-ch="${esc(k)}">Challenge</button></div>`).join(''):'<div class="it">Nobody else online yet</div>'}
 
@@ -204,28 +223,40 @@ function renderOnline(){const id=S.user.id,rows=[...online].filter(([k])=>k!==id
 async function loadChallenges(){if(!sb||!S.user)return;const{data}=await sb.from('challenges').select('*,p:profiles!from_user(display_name,rating)').eq('status','open').gt('created_at',new Date(Date.now()-9e5).toISOString()).order('created_at',{ascending:false}).limit(40);chList=data||[];renderChallenges()}
 function renderChallenges(){const id=S.user.id,rows=chList.filter(c=>(c.from_user===id||online.has(c.from_user))&&!blocked.has(c.from_user));
  $('#chList').innerHTML=rows.length?rows.map(c=>`<div class="it"><span><b>${esc(c.p?.display_name||'?')}</b> ${c.p?.rating||''} · ${esc(c.time_control)} · ${{w:'♔ White',b:'♚ Black',r:'🎲 Random'}[c.colour_pref]}${c.to_user?' · for you':''}</span>${c.from_user===id?`<button data-cancel="${c.id}">Cancel</button>`:`<button class="pri" data-acc="${c.id}">Accept</button>`}</div>`).join(''):'<div class="it">No open challenges</div>'}
-async function postChallenge(to){const tc=getTC();if(!tc)return;const{error}=await sb.from('challenges').insert({from_user:S.user.id,to_user:to,time_control:tcKey(tc),tc_minutes:tc.m,tc_inc:tc.i,colour_pref:S.pickColor});toast(error?error.message:to?'Challenge sent':'Open challenge posted')}
+async function postChallenge(to){const tc=getTC();if(!tc)return;const{error}=await sb.from('challenges').insert({from_user:S.user.id,to_user:to,time_control:tcKey(tc),tc_minutes:tc.m,tc_inc:tc.i,colour_pref:S.pickColor});if(!error&&!to)S.myOpen={tc:tcKey(tc),pref:S.pickColor};toast(error?error.message:to?'Challenge sent':'Open challenge posted – you will be paired with a similar-rated player')}
 function onChallenge(p){const c=p.new,id=S.user.id;
+ if(p.eventType==='INSERT'&&!c.to_user&&c.status==='open'&&c.from_user!==id&&S.myOpen&&!S.online&&c.time_control===S.myOpen.tc&&id<c.from_user&&!blocked.has(c.from_user)&&!(c.colour_pref!=='r'&&c.colour_pref===S.myOpen.pref)){
+  const pref=S.myOpen.pref;sb.from('profiles').select('rating').eq('id',c.from_user).single().then(({data})=>{if(data&&S.prof&&Math.abs(data.rating-S.prof.rating)<=RANGE)acceptCh(c,pref)})}
  if(p.eventType==='INSERT'&&c.to_user===id&&c.status==='open'&&!blocked.has(c.from_user)&&nowS()-Date.parse(c.created_at)<12e4)showChPopup(c);
  if(p.eventType==='UPDATE'){if(c.from_user===id&&c.status==='declined')toast('Challenge declined');if(S.chPop&&S.chPop.id===c.id&&c.status!=='open')$('#chM').classList.remove('on')}
  loadChallenges()}
 function showChPopup(c){S.chPop=c;sb.from('profiles').select('display_name,rating').eq('id',c.from_user).single().then(({data})=>{
  $('#chTxt').textContent=`${data?data.display_name+' ('+data.rating+')':'Someone'} challenges you to ${c.time_control}. ${{w:'You play Black.',b:'You play White.',r:'Colours will be random.'}[c.colour_pref]}`;$('#chM').classList.add('on')})}
-async function acceptCh(c){ /* atomic: only succeeds while status is still 'open' */
+async function acceptCh(c,myPref){ /* atomic: only succeeds while status is still 'open' */
  const{data,error}=await sb.from('challenges').update({status:'accepted'}).eq('id',c.id).eq('status','open').select();
  if(error||!data||!data.length){toast('That challenge is no longer available');loadChallenges();return}
- const me=S.user.id,w=c.colour_pref==='w'?c.from_user:c.colour_pref==='b'?me:(Math.random()<.5?c.from_user:me);
+ const me=S.user.id,w=c.colour_pref==='w'?c.from_user:c.colour_pref==='b'?me:myPref==='w'?me:myPref==='b'?c.from_user:(Math.random()<.5?c.from_user:me);
+ sb.from('challenges').update({status:'cancelled'}).eq('from_user',me).eq('status','open').then(()=>{});S.myOpen=null;
  const r=await makeGame(w,w===me?c.from_user:me,{m:c.tc_minutes,i:c.tc_inc});if(r.error)toast('Could not start game')}
 $('#chAcc').onclick=()=>{$('#chM').classList.remove('on');acceptCh(S.chPop)};
 $('#chDec').onclick=()=>{$('#chM').classList.remove('on');sb.from('challenges').update({status:'declined'}).eq('id',S.chPop.id).eq('status','open').then(()=>{})};
-$('#chList').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.cancel)sb.from('challenges').update({status:'cancelled'}).eq('id',b.dataset.cancel).then(loadChallenges);if(b.dataset.acc){const c=chList.find(x=>x.id===b.dataset.acc);if(c)acceptCh(c)}};
+$('#chList').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.cancel)S.myOpen=null,sb.from('challenges').update({status:'cancelled'}).eq('id',b.dataset.cancel).then(loadChallenges);if(b.dataset.acc){const c=chList.find(x=>x.id===b.dataset.acc);if(c)acceptCh(c)}};
 $('#onList').onclick=e=>{const b=e.target.closest('button');if(b&&b.dataset.ch)postChallenge(b.dataset.ch)};
-$('#openBtn').onclick=()=>postChallenge(null);
-$('#quickBtn').onclick=()=>{if(!sb||!S.user)return toast('Log in first');if(quick){quick=null;$('#quickBtn').textContent='⚡ Quick Play';trackMe();return}
- const tc=getTC();if(!tc)return;quick=tcKey(tc);$('#quickBtn').textContent='Searching '+quick+'… (tap to cancel)';trackMe()};
+/* "Challenge" button: instantly pair with a similar-rated open challenge, otherwise post one and wait */
+async function autoChallenge(){
+ if(!sb||!S.user||!S.prof)return toast('Log in first');const tc=getTC();if(!tc)return;
+ await loadChallenges();const me=S.user.id,mine=S.pickColor,key=tcKey(tc);let best=null,bd=1e9;
+ for(const c of chList){if(c.from_user===me||c.to_user||c.time_control!==key||!online.has(c.from_user)||blocked.has(c.from_user))continue;
+  if(c.colour_pref!=='r'&&c.colour_pref===mine)continue; /* both want the same colour */
+  const d=Math.abs((c.p?.rating||1200)-S.prof.rating);if(d<=RANGE&&d<bd){best=c;bd=d}}
+ if(best)return acceptCh(best,mine);
+ await postChallenge(null)}
+$('#openBtn').onclick=autoChallenge;
+$('#quickBtn').onclick=()=>{if(!sb||!S.user)return toast('Log in first');if(quick){quick=null;clearInterval(qTimer);$('#quickBtn').textContent='⚡ Quick Play';trackMe();return}
+ const tc=getTC();if(!tc)return;quickAt=nowS();quick=tcKey(tc);$('#quickBtn').textContent='Searching '+quick+'… (tap to cancel)';trackMe();clearInterval(qTimer);qTimer=setInterval(tryQuick,2000);tryQuick()};
 $('#rematch').onclick=async()=>{if(!S.oppId)return;const tc=S.tc,{error}=await sb.from('challenges').insert({from_user:S.user.id,to_user:S.oppId,time_control:tcKey(tc),tc_minutes:tc.m,tc_inc:tc.i,colour_pref:S.myColor==='w'?'b':'w'});toast(error?error.message:'Rematch offered')};
 $('#toLobby').onclick=()=>toBack();
-function toBack(){$('#endM').classList.remove('on');leaveGame();S.playing=false;show('lobby');loadChallenges()}
+function toBack(){$('#endM').classList.remove('on');leaveGame();S.playing=false;show('lobby');loadChallenges();if(sb&&S.user)sb.from('profiles').select('rating').eq('id',S.user.id).single().then(({data})=>{if(data&&S.prof){S.prof.rating=data.rating;setHello();trackMe()}})}
 
 /* ============ GAME SYNC (realtime game rows, reconnect, abandon) ============ */
 async function makeGame(w,b,tc){const ms=tc.m*60000;
@@ -235,7 +266,7 @@ function syncClocks(g){S.t={w:+g.white_time_ms,b:+g.black_time_ms};if(g.moves.le
 function openGame(g){
  if(S.game&&S.game.id===g.id)return;
  leaveGame();S.game=g;S.online=true;const id=S.user.id,C={w:'White',b:'Black'};
- quick=null;$('#quickBtn').textContent='⚡ Quick Play';trackMe();$('#chM').classList.remove('on');$('#endM').classList.remove('on');
+ quick=null;clearInterval(qTimer);S.myOpen=null;$('#quickBtn').textContent='⚡ Quick Play';trackMe();$('#chM').classList.remove('on');$('#endM').classList.remove('on');
  G=new Chess();(g.moves||[]).forEach(m=>G.move(m));
  S.myColor=g.white_id===id?'w':'b';S.oppId=g.white_id===id?g.black_id:g.white_id;S.tc={m:g.tc_minutes,i:g.tc_inc};
  S.over=false;S.playing=true;S.sel=null;S.legal=[];S.q=Promise.resolve();syncClocks(g);$('#chat').style.display='';$('#chat').classList.toggle('shut',innerWidth<700);resetChat();
@@ -258,8 +289,12 @@ function onGameRow(g){
  else if(mv.length>h.length){for(let i=h.length;i<mv.length;i++)G.move(mv[i]);S.sel=null;S.legal=[];syncClocks(g);afterMove(1)}
  else syncClocks(g);
  S.game=g;
- if(g.status==='finished')end(resText(g),true);
+ if(g.status==='finished'){end(resText(g),true);showDelta(g)}
  else if(g.draw_offer_by&&g.draw_offer_by!==S.user.id&&!S.gotOffer){S.gotOffer=1;setTimeout(()=>{const ok=confirm('Your opponent offers a draw. Accept?');S.gotOffer=0;if(S.game&&!S.over)Net.answerDraw(ok)},30)}}
+function showDelta(g){if(g.white_delta==null||S.deltaShown===g.id)return;S.deltaShown=g.id;
+ const w=S.myColor==='w',d=w?g.white_delta:g.black_delta,r0=w?g.white_rating:g.black_rating;
+ if(S.prof){S.prof.rating=Math.max(100,r0+d);setHello();trackMe()}
+ $('#endT').textContent+=`\nRating ${r0} → ${Math.max(100,r0+d)} (${d>=0?'+':''}${d})`}
 function onGamePresence(){ /* abandon rule: opponent gone for 60 s -> you win */
  if(!gameCh||S.over||!S.game)return;
  if(gameCh.presenceState()[S.oppId]){clearTimeout(absentT);absentT=null}
@@ -344,6 +379,24 @@ function dragTile(t){t.addEventListener('pointerdown',e=>{const r=t.getBoundingC
  const mv=ev=>{t.style.left=Math.max(0,Math.min(innerWidth-40,ev.clientX-dx))+'px';t.style.top=Math.max(0,Math.min(innerHeight-40,ev.clientY-dy))+'px'};
  const up=()=>{t.removeEventListener('pointermove',mv);t.removeEventListener('pointerup',up)};t.addEventListener('pointermove',mv);t.addEventListener('pointerup',up)})}
 
+
+/* ============ MATCH HISTORY ============ */
+const REASON={checkmate:'checkmate',time:'on time',resign:'resignation',abandon:'opponent left',stalemate:'stalemate',insufficient:'insufficient material',repetition:'repetition','50move':'50-move rule',agreement:'agreement'};
+async function showHistory(){
+ if(!sb||!S.user)return;show('history');setHello();const id=S.user.id,L=$('#hList');L.innerHTML='<div class="it">Loading…</div>';$('#hStats').textContent='';
+ const{data,error}=await sb.from('games').select('*').eq('status','finished').or(`white_id.eq.${id},black_id.eq.${id}`).order('created_at',{ascending:false}).limit(100);
+ if(error){L.innerHTML='<div class="it">Could not load your matches. Check your connection and try again.</div>';return}
+ const gs=data||[];if(!gs.length){L.innerHTML='<div class="it">No finished games yet. Play one from the lobby.</div>';return}
+ const ids=[...new Set(gs.map(g=>g.white_id===id?g.black_id:g.white_id))];
+ const{data:ps}=await sb.from('profiles').select('id,display_name').in('id',ids);const nm=Object.fromEntries((ps||[]).map(x=>[x.id,x.display_name]));
+ let W=0,Lo=0,D=0;
+ L.innerHTML=gs.map((g,i)=>{const white=g.white_id===id,opp=white?g.black_id:g.white_id,r=g.result,win=(r==='1-0'&&white)||(r==='0-1'&&!white),draw=r==='1/2-1/2',cls=draw?'d':win?'w':'l';
+  if(draw)D++;else if(win)W++;else Lo++;
+  const dl=white?g.white_delta:g.black_delta,mv=g.moves||[];let pgn='';for(let k=0;k<mv.length;k+=2)pgn+=(k/2+1)+'. '+mv[k]+(mv[k+1]?' '+mv[k+1]:'')+' ';
+  return `<div class="it hrow" data-i="${i}"><span><b class="res-${cls}">${draw?'Draw':win?'Win':'Loss'}</b> vs <b>${esc(nm[opp]||'Player')}</b> ${white?'♔':'♚'}<br><small style="color:var(--mut)">${esc(g.time_control)} · ${esc(REASON[g.result_reason]||g.result_reason||'')} · ${new Date(g.created_at).toLocaleDateString()} ${tm(g.created_at)}</small></span><span>${dl==null?'':`<b class="res-${dl>0?'w':dl<0?'l':'d'}">${dl>0?'+':''}${dl}</b>`}</span></div><div class="hmoves" id="hm${i}" style="display:none">${esc(pgn)||'No moves'}</div>`}).join('');
+ $('#hStats').innerHTML=`<b>${gs.length}</b> games · <span class="res-w">${W} won</span> · <span class="res-l">${Lo} lost</span> · <span class="res-d">${D} drawn</span> · Rating <b>★${S.prof?S.prof.rating:'?'}</b> <small>(tap a game to see its moves)</small>`}
+$('#hList').onclick=e=>{const r=e.target.closest('.hrow');if(!r)return;const m=$('#hm'+r.dataset.i);m.style.display=m.style.display==='none'?'block':'none'};
+$('#histBtn').onclick=showHistory;$('#histBack').onclick=()=>show('lobby');
 
 /* ================= AUTH UI ================= */
 let signup=true;
@@ -463,7 +516,7 @@ $('#setClose').onclick=()=>$('#setM').classList.remove('on');
 document.body.className=S.theme;setMode();
 if(sb)sb.auth.onAuthStateChange((ev,ses)=>{if(ses&&ses.user){S.user=mk(ses.user);setTimeout(enterLobby,0)}else if(ev==='SIGNED_OUT'){teardown();S.user=null;show('auth')}});
 (async()=>{const s=await authGetSession();if(s){S.user=s.user;enterLobby()}})();
-/* PART 3 PLUG-IN: lobby list / matchmaking UI / chat / rematch hook into #lobby and Net.* above */
+const PHOTO="data:image/jpeg;base64,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";$$('img.me').forEach(i=>i.src=PHOTO);
 /* ===================== SUPABASE SQL SETUP (also in supabase.sql) =====================
 -- Run once in Supabase: SQL Editor -> New query -> paste -> Run
 
@@ -625,6 +678,40 @@ create or replace function public.blocked_between(a uuid,b uuid) returns boolean
 drop policy if exists "players send chat" on public.messages;
 create policy "players send chat" on public.messages for insert to authenticated
  with check (sender_id=auth.uid() and exists(select 1 from public.games g where g.id=game_id and auth.uid() in (g.white_id,g.black_id) and not public.blocked_between(g.white_id,g.black_id)));
+
+-- ===== RATINGS + MATCH HISTORY (run once; safe to re-run) =====
+alter table public.games
+ add column if not exists white_rating int,
+ add column if not exists black_rating int,
+ add column if not exists white_delta int,
+ add column if not exists black_delta int;
+create index if not exists games_white_idx on public.games(white_id);
+create index if not exists games_black_idx on public.games(black_id);
+
+-- Elo (K=32) is calculated on the server when a game finishes; clients cannot edit ratings. Games shorter than 2 half-moves are unrated.
+create or replace function public.games_rate() returns trigger language plpgsql security definer set search_path=public as $$
+declare rw int; rb int; ew numeric; sw numeric; dw int := 0;
+begin
+ if old.status='active' and new.status='finished' then
+  select rating into rw from public.profiles where id=new.white_id;
+  select rating into rb from public.profiles where id=new.black_id;
+  new.white_rating:=rw; new.black_rating:=rb;
+  if coalesce(array_length(new.moves,1),0)>=2 then
+   ew := 1/(1+power(10,(rb-rw)/400.0));
+   sw := case new.result when '1-0' then 1 when '0-1' then 0 else 0.5 end;
+   dw := round(32*(sw-ew));
+  end if;
+  new.white_delta:=dw; new.black_delta:=-dw;
+  update public.profiles set rating=greatest(100,rating+dw) where id=new.white_id;
+  update public.profiles set rating=greatest(100,rating-dw) where id=new.black_id;
+ else
+  new.white_rating:=old.white_rating; new.black_rating:=old.black_rating;
+  new.white_delta:=old.white_delta; new.black_delta:=old.black_delta;
+ end if;
+ return new;
+end $$;
+drop trigger if exists games_rate_trg on public.games;
+create trigger games_rate_trg before update on public.games for each row execute function public.games_rate();
 
 */
 </script></body></html>
